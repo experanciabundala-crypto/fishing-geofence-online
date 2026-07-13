@@ -1,0 +1,14 @@
+{
+  "name": "fishing-geofence-online",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
+    "express": "^4.18.2",
+    "serialport": "^13.0.0",
+    "ws": "^8.16.0"
+  }
+}
