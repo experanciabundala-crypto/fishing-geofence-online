@@ -50,8 +50,8 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Eneo A - Lililokatazwa',
-    lat: -8.933936,
-    lon: 33.420630,
+    lat: -8.935497,
+    lon: 33.422386,
     allowedError: 0.000084 // takriban mita 9, sawa na Arduino
   }
 ];
