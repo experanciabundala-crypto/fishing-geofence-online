@@ -2,23 +2,22 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
 const SERVER_URL = 'https://fishing-monitor-production.up.railway.app/api/data';
-const SERIAL_PORT = 'COM15';
+const SERIAL_PORT = 'COM4';
 const BAUD_RATE = 9600;
 
 let buf = { lat: null, lon: null };
-let lastStatus = 'safe';
 let sentCount = 0;
 
-async function sendToServer(lat, lon, status) {
+async function sendToServer(lat, lon) {
   try {
     const res = await fetch(SERVER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon, status })
+      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon })
     });
     if (res.ok) {
       sentCount++;
-      console.log(`✅ Imetumwa #${sentCount} | Lat:${lat} Lon:${lon} | ${status}`);
+      console.log(`✅ Imetumwa #${sentCount} | Lat:${lat} Lon:${lon}`);
     } else {
       const body = await res.text().catch(() => '');
       console.log(`⚠️  Server imekataa (HTTP ${res.status}): ${body}`);
@@ -38,13 +37,9 @@ function processLine(line) {
   const lonMatch = line.match(/LONGITUDE\s*(?:RECEIVED)?\s*:\s*([-\d.]+)/i);
   if (lonMatch) { buf.lon = parseFloat(lonMatch[1]); }
 
-  if (/PROHIBITED|NEEDS HELP/i.test(line)) lastStatus = 'violation';
-  else if (/SAFE/i.test(line)) lastStatus = 'safe';
-
   if (buf.lat !== null && buf.lon !== null) {
-    sendToServer(buf.lat, buf.lon, lastStatus);
+    sendToServer(buf.lat, buf.lon); // server ndiyo itaamua status (safe/warning/violation)
     buf = { lat: null, lon: null };
-    lastStatus = 'safe';
   }
 }
 
@@ -80,7 +75,6 @@ function connect() {
       console.log('🔄 Serial imefungwa — inajaribu tena...');
       setTimeout(connect, 3000);
     });
-
   } catch (err) {
     console.log(`❌ ${err.message}`);
     setTimeout(connect, 3000);
@@ -89,6 +83,7 @@ function connect() {
 
 console.log('╔══════════════════════════════════════════╗');
 console.log('║   FORWARDER - Laptop → Internet          ║');
-console.log(`║   COM15 @ 9600 baud                      ║`);
+console.log(`║   COM4 @ 9600 baud                      ║`);
 console.log('╚══════════════════════════════════════════╝\n');
+
 connect();
