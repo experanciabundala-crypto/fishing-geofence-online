@@ -4,18 +4,17 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const SERVER_URL = 'https://fishing-monitor-production.up.railway.app/api/data';
 const SERIAL_PORT = 'COM4';
 const BAUD_RATE = 9600;
-const SEND_INTERVAL_MS = 1000; // tuma usomaji mpya zaidi kila sekunde 1
 
 let buf = { lat: null, lon: null };
-let latest = null;       // usomaji wa hivi karibuni zaidi uliopokelewa
-let sending = false;     // kuzuia kutuma request mbili kwa wakati mmoja
+let latest = null;       // usomaji mpya zaidi bado haujatumwa
+let sending = false;     // kuzuia request mbili kwa wakati mmoja
 let sentCount = 0;
 
 async function sendLatest() {
-  if (sending) return;      // request nyingine bado inaendelea, ruka mzunguko huu
-  if (!latest) return;      // hakuna data mpya
+  if (sending) return;      // request nyingine bado inaendelea
+  if (!latest) return;      // hakuna kitu kipya cha kutuma
   const { lat, lon } = latest;
-  latest = null;             // futa mara moja, ili tusirudie kutuma ile ile
+  latest = null;
   sending = true;
   try {
     const res = await fetch(SERVER_URL, {
@@ -34,6 +33,7 @@ async function sendLatest() {
     console.log(`❌ Haiwezi kutuma: ${err.message}`);
   } finally {
     sending = false;
+    if (latest) sendLatest(); // kama kuna nyingine mpya iliyoingia wakati tulikuwa tunatuma, tuma sasa hivi
   }
 }
 
@@ -48,8 +48,9 @@ function processLine(line) {
   if (lonMatch) { buf.lon = parseFloat(lonMatch[1]); }
 
   if (buf.lat !== null && buf.lon !== null) {
-    latest = { lat: buf.lat, lon: buf.lon }; // hifadhi tu ya hivi karibuni, si kutuma mara moja
+    latest = { lat: buf.lat, lon: buf.lon };
     buf = { lat: null, lon: null };
+    sendLatest(); // tuma MARA MOJA, usisubiri interval
   }
 }
 
@@ -97,4 +98,3 @@ console.log(`║   COM4 @ 9600 baud                      ║`);
 console.log('╚══════════════════════════════════════════╝\n');
 
 connect();
-setInterval(sendLatest, SEND_INTERVAL_MS); // tuma usomaji mpya zaidi kila sekunde 1
