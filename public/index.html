@@ -102,7 +102,7 @@ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;height:10
     <div class="topbar-right">
       <div class="serial-status">
         <div class="sdot" id="sdot"></div>
-        <span id="slabel">Inasubiri COM15...</span>
+        <span id="slabel">Inasubiri data...</span>
       </div>
       <div class="live-pill"><div class="ldot"></div>LIVE</div>
       <span style="font-size:12px;color:#64748b" id="clock"></span>
@@ -454,7 +454,7 @@ function connect() {
       if (msg.type === 'serial_status') {
         document.getElementById('sdot').classList.toggle('ok', msg.connected);
         document.getElementById('slabel').textContent = msg.connected
-          ? 'COM15 imeunganika ✅'
+          ? 'COM4 imeunganika ✅'
           : 'Serial imekatika...';
       }
     } catch (e) {}
@@ -484,6 +484,14 @@ function loadInitialData() {
     .then(drawZones)
     .catch(() => {});
 }
+
+// Sasisha eneo lililokatazwa kila baada ya sekunde 10, bila kuhitaji refresh ya ukurasa
+setInterval(() => {
+  fetch('/api/zones', { headers: authHeaders() })
+    .then(r => r.ok ? r.json() : [])
+    .then(drawZones)
+    .catch(() => {});
+}, 10000);
 
 // ── Anzisha programu moja kwa moja, bila login ──
 showApp();
