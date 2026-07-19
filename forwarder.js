@@ -2,7 +2,7 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
 const SERVER_URL = 'https://fishing-geofence-online-production.up.railway.app/api/data';
-const SERIAL_PORT = 'COM15';
+const SERIAL_PORT = 'COM4';
 const BAUD_RATE = 9600;
 
 let buf = { lat: null, lon: null };
