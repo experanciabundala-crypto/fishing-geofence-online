@@ -98,7 +98,7 @@ const FORBIDDEN_ZONES = [
     name: 'Mbeya University - Eneo Lililokatazwa',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.004492 // takriban mita 500
+    allowedError: 0.044492 // takriban mita 500
   }
 ];
 
