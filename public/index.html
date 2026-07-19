@@ -331,18 +331,48 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let zoneLayers = [];
+// Tengeneza "pie-slice" (sekta) ya duara kwa Leaflet polygon, kwa kutumia bearing degrees.
+// center: [lat, lon], radiusMeters, bearingCenter/spread: digrii (0=Kaskazini, 90=Mashariki...)
+function sectorLatLngs(centerLat, centerLon, radiusMeters, bearingCenter, spread) {
+  const points = [[centerLat, centerLon]];
+  const startB = bearingCenter - spread;
+  const endB = bearingCenter + spread;
+  const steps = 40;
+  for (let i = 0; i <= steps; i++) {
+    const b = startB + ((endB - startB) * i) / steps;
+    const rad = (b * Math.PI) / 180;
+    // Hesabu offset kwa mita, kisha badilisha kuwa degrees (sawa na formula ya distanceMeters upande wa server)
+    const dNorth = radiusMeters * Math.cos(rad); // mita kuelekea Kaskazini
+    const dEast = radiusMeters * Math.sin(rad);  // mita kuelekea Mashariki
+    const dLat = dNorth / 111320;
+    const dLon = dEast / (111320 * Math.cos((centerLat * Math.PI) / 180));
+    points.push([centerLat + dLat, centerLon + dLon]);
+  }
+  points.push([centerLat, centerLon]);
+  return points;
+}
+
 function drawZones(zones) {
   zoneLayers.forEach(l => map.removeLayer(l));
   zoneLayers = [];
   zones.forEach(z => {
     // allowedError ni degrees; tunabadilisha kuwa mita kwa radius ya duara (~111320m kwa degree 1 ya latitude)
     const radiusMeters = z.allowedError * 111320;
-    const circle = L.circle([z.lat, z.lon], {
-      radius: radiusMeters,
-      color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
-    }).addTo(map);
-    circle.bindTooltip(`🚫 ${z.name}`, { permanent: true, direction: 'center', className: 'zone-tip' });
-    zoneLayers.push(circle);
+    let shape;
+    if (z.waterBearingCenter != null) {
+      // Nusu-duara (sekta) inayoelekea upande wa maji tu — inalingana na ukaguzi wa server
+      const latlngs = sectorLatLngs(z.lat, z.lon, radiusMeters, z.waterBearingCenter, z.waterBearingSpread);
+      shape = L.polygon(latlngs, {
+        color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
+      }).addTo(map);
+    } else {
+      shape = L.circle([z.lat, z.lon], {
+        radius: radiusMeters,
+        color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
+      }).addTo(map);
+    }
+    shape.bindTooltip(`🚫 ${z.name}`, { permanent: true, direction: 'center', className: 'zone-tip' });
+    zoneLayers.push(shape);
   });
 }
 

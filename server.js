@@ -127,14 +127,21 @@ const FORBIDDEN_ZONES = [
     name: 'Kasekera - Eneo Lililokatazwa',
     lat: -4.687981,
     lon: 29.619278,
-    allowedError: 0.004492 // takriban mita 500
+    allowedError: 0.044921, // takriban mita 5000 (radius)
+    // Kasekera iko ukingoni mwa Ziwa Tanganyika — duara kamili lingefunika nchi kavu pia.
+    // "waterBearingCenter/Spread" inapunguza ukaguzi kwenye NUSU-DUARA inayoelekea majini tu.
+    // 0°=Kaskazini, 90°=Mashariki, 180°=Kusini, 270°=Magharibi.
+    // Kwa Kasekera, ziwa liko upande wa MASHARIKI ya kijiji — badilisha namba hizi
+    // kama upande wa maji ni tofauti kwenye eneo lako halisi.
+    waterBearingCenter: 90,   // Mashariki (upande wa maji)
+    waterBearingSpread: 100  // inashughulikia takriban Kaskazini-Mashariki hadi Kusini-Mashariki
   },
   {
     id: 'B',
-    name: 'Mbeya University - Eneo Lililokatazwa',
+    name: 'Mbeya University - Eneo Lililokatazwa (Trial)',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.004492 // takriban mita 500
+    allowedError: 0.044921 // takriban mita 5000 (radius, duara kamili — trial tu, si majini)
   }
 ];
 
@@ -152,10 +159,39 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
+// Mwelekeo (bearing, digrii) kutoka pointi 1 kwenda pointi 2. 0=Kaskazini, 90=Mashariki...
+function bearingDegrees(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  const brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+}
+
+// Je, bearing fulani iko ndani ya (center ± spread) digrii?
+function bearingWithinRange(bearing, center, spread) {
+  let diff = Math.abs(bearing - center) % 360;
+  if (diff > 180) diff = 360 - diff;
+  return diff <= spread;
+}
+
+// Je, pointi (lat,lon) iko ndani ya "eneo" la zone, kwa radius fulani (mita)?
+// Ikiwa zone ina waterBearingCenter, tunapunguza ukaguzi kwenye nusu-duara ya maji tu.
+function withinZone(lat, lon, zone, radiusMeters) {
+  if (distanceMeters(lat, lon, zone.lat, zone.lon) > radiusMeters) return false;
+  if (zone.waterBearingCenter != null) {
+    const brg = bearingDegrees(zone.lat, zone.lon, lat, lon);
+    if (!bearingWithinRange(brg, zone.waterBearingCenter, zone.waterBearingSpread)) return false;
+  }
+  return true;
+}
+
 function checkViolation(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
     const radiusMeters = zone.allowedError * METERS_PER_DEGREE;
-    if (distanceMeters(lat, lon, zone.lat, zone.lon) <= radiusMeters) return zone;
+    if (withinZone(lat, lon, zone, radiusMeters)) return zone;
   }
   return null;
 }
@@ -163,7 +199,7 @@ function checkViolation(lat, lon) {
 function checkWarning(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
     const radiusMeters = (zone.allowedError + WARNING_MARGIN) * METERS_PER_DEGREE;
-    if (distanceMeters(lat, lon, zone.lat, zone.lon) <= radiusMeters) return zone;
+    if (withinZone(lat, lon, zone, radiusMeters)) return zone;
   }
   return null;
 }
