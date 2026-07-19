@@ -35,6 +35,8 @@ function broadcast(data) {
 // ── Hifadhi ──
 const boats = {};
 const alertsLog = [];
+const positionLog = []; // Kila "packet" iliyowahi kupokelewa (safari NZIMA ya kila boti, si matukio tu)
+const POSITION_LOG_LIMIT = 5000; // kikomo cha kumbukumbu ili server isijae
 let packetCount = 0;
 const startTime = new Date(); // muda mfumo ulipoanza kuwa active
 
@@ -42,6 +44,43 @@ const startTime = new Date(); // muda mfumo ulipoanza kuwa active
 // Boti haitaonekana kwenye dashboard mpaka isajiliwe hapa kwanza
 const registeredBoats = {};
 const OFFLINE_THRESHOLD_MS = 15000; // sekunde 15 bila data = "haisomi"
+
+// ── Arifa za SMS (HIARI) ──
+// Tunatumia huduma ya Africa's Talking (inafanya kazi vizuri Tanzania/Afrika Mashariki).
+// Ili kuwezesha: nenda Railway → Variables → ongeza AT_USERNAME na AT_API_KEY
+// (unazipata baada ya kujisajili africastalking.com). Bila hizo, mfumo utaendelea
+// kufanya kazi kawaida — SMS itarukwa tu na ujumbe utaonekana kwenye "Deploy Logs".
+const AT_USERNAME = process.env.AT_USERNAME || '';
+const AT_API_KEY = process.env.AT_API_KEY || '';
+const AT_SENDER_ID = process.env.AT_SENDER_ID || ''; // hiari
+
+async function sendSMS(phone, message) {
+  if (!phone) return; // boti haina namba ya simu iliyosajiliwa
+  if (!AT_USERNAME || !AT_API_KEY) {
+    console.log(`📵 SMS haijatumwa (huduma ya SMS haijawekwa Railway Variables) → ${phone}: ${message}`);
+    return;
+  }
+  try {
+    const params = new URLSearchParams();
+    params.append('username', AT_USERNAME);
+    params.append('to', phone);
+    params.append('message', message);
+    if (AT_SENDER_ID) params.append('from', AT_SENDER_ID);
+    const res = await fetch('https://api.africastalking.com/version1/messaging', {
+      method: 'POST',
+      headers: {
+        apiKey: AT_API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json'
+      },
+      body: params
+    });
+    if (res.ok) console.log(`📩 SMS imetumwa kwa ${phone}`);
+    else console.log(`⚠️  SMS imeshindikana (HTTP ${res.status}) kwa ${phone}`);
+  } catch (err) {
+    console.log(`❌ Hitilafu ya kutuma SMS: ${err.message}`);
+  }
+}
 
 // ── Maeneo Yaliyokatazwa ──
 // Kila eneo ni "point" + eneo dogo (radius) kuzunguka, kufanana na mantiki ya Arduino
@@ -94,6 +133,7 @@ function checkWarning(lat, lon) {
 }
 
 function processBoatData(boatId, lat, lon, rawStatus) {
+  const prevStatus = boats[boatId]?.status; // hali kabla ya packet hii, kutambua "transition"
   const violation = checkViolation(lat, lon);
   const warning = !violation ? checkWarning(lat, lon) : null;
   const arduinoViolation = rawStatus && /PROHIBITED|NEEDS HELP/i.test(rawStatus);
@@ -101,7 +141,9 @@ function processBoatData(boatId, lat, lon, rawStatus) {
 
   packetCount++;
   const record = {
-    id: boatId, lat, lon, status,
+    id: boatId,
+    name: registeredBoats[boatId]?.name || boatId,
+    lat, lon, status,
     zone: violation?.name || warning?.name || (arduinoViolation ? 'Eneo Lililokatazwa' : null),
     time: new Date().toISOString(),
     packet: packetCount
@@ -110,6 +152,11 @@ function processBoatData(boatId, lat, lon, rawStatus) {
   boats[boatId] = record;
   broadcast({ type: 'boat_update', boat: record });
 
+  // Hifadhi kwenye "safari nzima" (positionLog) — hii ndiyo inayowezesha
+  // ripoti kamili ya alipokuwa boti, si matukio ya ukiukaji tu.
+  positionLog.push(record);
+  if (positionLog.length > POSITION_LOG_LIMIT) positionLog.shift();
+
   if (status === 'violation') {
     const alert = { type:'alert', level:'danger',
       message:`🚨 ${boatId} amevuka mpaka! ${record.zone || ''}`,
@@ -117,6 +164,11 @@ function processBoatData(boatId, lat, lon, rawStatus) {
     alertsLog.unshift(alert);
     broadcast(alert);
     console.log(`🚨 UKIUKAJI! ${boatId} | Lat:${lat} Lon:${lon}`);
+    if (prevStatus !== 'violation') {
+      // Boti inaingia ukiukaji SASA HIVI (si tayari ndani) — tuma SMS mara moja tu
+      const phone = registeredBoats[boatId]?.phone;
+      sendSMS(phone, `ARIFA UVUVI: Boti ${boatId} imevuka mpaka - ${record.zone || 'eneo lililokatazwa'}. Muda: ${new Date(record.time).toLocaleTimeString()}`);
+    }
   } else if (status === 'warning') {
     const alert = { type:'alert', level:'warning',
       message:`⚠️ ${boatId} inakaribia ${record.zone}`,
@@ -148,7 +200,7 @@ app.post('/api/data', (req, res) => {
 
 // ── Usajili wa boti ──
 app.post('/api/boats/register', (req, res) => {
-  const { boat_id, name } = req.body;
+  const { boat_id, name, phone } = req.body;
   if (!boat_id || !boat_id.trim()) {
     return res.status(400).json({ error: 'Tuma boat_id' });
   }
@@ -156,11 +208,14 @@ app.post('/api/boats/register', (req, res) => {
   registeredBoats[id] = {
     id,
     name: (name && name.trim()) || id,
+    phone: (phone && phone.trim()) || registeredBoats[id]?.phone || '',
     registeredAt: registeredBoats[id]?.registeredAt || new Date().toISOString()
   };
   // Tengeneza boti ionekane mara moja kwenye dashboard ikiwa "haisomi" mpaka ituma data
   if (!boats[id]) {
-    boats[id] = { id, lat: null, lon: null, status: 'offline', zone: null, time: null, packet: 0 };
+    boats[id] = { id, name: registeredBoats[id].name, lat: null, lon: null, status: 'offline', zone: null, time: null, packet: 0 };
+  } else {
+    boats[id].name = registeredBoats[id].name;
   }
   broadcast({ type: 'boat_update', boat: boats[id] });
   res.json({ ok: true, boat: registeredBoats[id] });
@@ -181,7 +236,9 @@ app.get('/api/alerts', (req, res) => res.json(alertsLog.slice(0, 50)));
 app.get('/api/zones', (req, res) => res.json(FORBIDDEN_ZONES));
 app.get('/api/full-history', (req, res) => res.json({
   startTime: startTime.toISOString(),
-  alerts: alertsLog
+  alerts: alertsLog,
+  positions: positionLog,
+  registered: Object.values(registeredBoats)
 }));
 app.get('/api/status', (req, res) => res.json({
   online: true,
