@@ -89,9 +89,9 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Kasekera - Eneo Lililokatazwa',
-    lat: -4.687981,
-    lon: 29.619278,
-    allowedError: 0.004492 // takriban mita 500
+    lat:  -4.651183,
+    lon:  29.440335,
+    allowedError: 0.044492 // takriban mita 500
   },
   {
     id: 'B',
