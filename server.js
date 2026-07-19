@@ -89,16 +89,22 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Kasekera - Eneo Lililokatazwa',
+<<<<<<< HEAD
      lat:  -4.651183,
     lon:  29.440335,
     allowedError: 0.004492 // takriban mita 500
+=======
+    lat:  -4.651183,
+    lon:  29.440335,
+    allowedError: 0.044492 // takriban mita 500
+>>>>>>> e83f4184a09ec4d8d0a0a9dfecb917d87293d349
   },
   {
     id: 'B',
     name: 'Mbeya University - Eneo Lililokatazwa',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.004492 // takriban mita 500
+    allowedError: 0.044492 // takriban mita 500
   }
 ];
 
