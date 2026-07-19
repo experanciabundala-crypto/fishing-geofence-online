@@ -49,30 +49,46 @@ const OFFLINE_THRESHOLD_MS = 15000; // sekunde 15 bila data = "haisomi"
 const FORBIDDEN_ZONES = [
   {
     id: 'A',
-    name: 'Eneo A - Lililokatazwa',
+    name: 'Kasekera - Eneo Lililokatazwa',
+    lat: -4.687981,
+    lon: 29.619278,
+    allowedError: 0.004492 // takriban mita 500
+  },
+  {
+    id: 'B',
+    name: 'Mbeya University - Eneo Lililokatazwa',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.000200 // takriban mita 9, sawa na Arduino
+    allowedError: 0.004492 // takriban mita 500
   }
 ];
 
 // Eneo la "onyo" (warning) ni doa kubwa kidogo kuzunguka eneo lililokatazwa
 const WARNING_MARGIN = 0.0003; // takriban mita 33 za ziada
 
+// Umbali wa kweli (mita) kati ya pointi mbili za lat/lon, kwa kutumia mkabala
+// uleule (~111320m kwa degree 1 ya latitude) unaotumika kwenye ramani (index.html),
+// na kusahihisha longitude kwa cos(latitude) ili duara la ukaguzi lilingane
+// KABISA na duara jekundu linaloonyeshwa kwa mtumiaji.
+const METERS_PER_DEGREE = 111320;
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  const dLat = (lat1 - lat2) * METERS_PER_DEGREE;
+  const dLon = (lon1 - lon2) * METERS_PER_DEGREE * Math.cos(lat2 * Math.PI / 180);
+  return Math.sqrt(dLat * dLat + dLon * dLon);
+}
+
 function checkViolation(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
-    const latDiff = Math.abs(lat - zone.lat);
-    const lonDiff = Math.abs(lon - zone.lon);
-    if (latDiff < zone.allowedError && lonDiff < zone.allowedError) return zone;
+    const radiusMeters = zone.allowedError * METERS_PER_DEGREE;
+    if (distanceMeters(lat, lon, zone.lat, zone.lon) <= radiusMeters) return zone;
   }
   return null;
 }
 
 function checkWarning(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
-    const latDiff = Math.abs(lat - zone.lat);
-    const lonDiff = Math.abs(lon - zone.lon);
-    if (latDiff < zone.allowedError + WARNING_MARGIN && lonDiff < zone.allowedError + WARNING_MARGIN) return zone;
+    const radiusMeters = (zone.allowedError + WARNING_MARGIN) * METERS_PER_DEGREE;
+    if (distanceMeters(lat, lon, zone.lat, zone.lon) <= radiusMeters) return zone;
   }
   return null;
 }
