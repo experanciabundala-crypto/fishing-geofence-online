@@ -92,7 +92,7 @@ const FORBIDDEN_ZONES = [
 <<<<<<< HEAD
      lat:  -4.651183,
     lon:  29.440335,
-    allowedError: 0.004492 // takriban mita 500
+    allowedError: 0.444492 // takriban mita 500
 =======
     lat:  -4.651183,
     lon:  29.440335,
