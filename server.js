@@ -249,18 +249,24 @@ function checkWarning(lat, lon) {
   return null;
 }
 
-function processBoatData(boatId, lat, lon, rawStatus) {
+function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag) {
   const prevStatus = boats[boatId]?.status; // hali kabla ya packet hii, kutambua "transition"
   const violation = checkViolation(lat, lon);
   const warning = !violation ? checkWarning(lat, lon) : null;
   const arduinoViolation = rawStatus && /PROHIBITED|NEEDS HELP/i.test(rawStatus);
   const status = (violation || arduinoViolation) ? 'violation' : warning ? 'warning' : 'safe';
 
+  // MPYA — kufuatilia "transition" ya tamper/need-help kwa uhuru, bila kugusa status hapo juu
+  const prevTampered = boats[boatId]?.tampered || false;
+  const prevNeedHelp = boats[boatId]?.needHelp || false;
+
   packetCount++;
   const record = {
     id: boatId,
     name: registeredBoats[boatId]?.name || boatId,
     lat, lon, status,
+    tampered: !!tamperFlag,   // MPYA
+    needHelp: !!needHelpFlag, // MPYA
     zone: violation?.name || warning?.name || (arduinoViolation ? 'Eneo Lililokatazwa' : null),
     time: new Date().toISOString(),
     packet: packetCount
@@ -299,6 +305,36 @@ function processBoatData(boatId, lat, lon, rawStatus) {
   } else {
     console.log(`✅ SALAMA | ${boatId} | Lat:${lat} Lon:${lon} | #${packetCount}`);
   }
+
+  // ── MPYA: TAMPER — huru kabisa, haiathiri status/violation/warning hapo juu ──
+  if (tamperFlag && !prevTampered) {
+    const alert = { type:'alert', level:'warning',
+      message:`🔧 ${boatId} - kifaa kimeguswa (tamper detected)!`,
+      boat: record, time: record.time };
+    alertsLog.unshift(alert);
+    broadcast(alert);
+    console.log(`🔧 TAMPER! ${boatId} | Lat:${lat} Lon:${lon}`);
+    const phone = registeredBoats[boatId]?.phone;
+    const email = registeredBoats[boatId]?.email;
+    const msg = `ONYO: Kifaa cha boti ${boatId} kimeguswa/kimebadilishwa (tamper). Kuratibu: ${lat}, ${lon}. Muda: ${new Date(record.time).toLocaleString()}`;
+    sendSMS(phone, msg);
+    sendEmail(email, `🔧 Onyo la Tamper - ${boatId}`, msg);
+  }
+
+  // ── MPYA: NEEDS HELP / SOS — huru kabisa, haiathiri status/violation/warning hapo juu ──
+  if (needHelpFlag && !prevNeedHelp) {
+    const alert = { type:'alert', level:'danger',
+      message:`🆘 ${boatId} INAOMBA MSAADA WA DHARURA (SOS)!`,
+      boat: record, time: record.time };
+    alertsLog.unshift(alert);
+    broadcast(alert);
+    console.log(`🆘 SOS! ${boatId} | Lat:${lat} Lon:${lon}`);
+    const phone = registeredBoats[boatId]?.phone;
+    const email = registeredBoats[boatId]?.email;
+    const msg = `DHARURA: Boti ${boatId} imeomba MSAADA (SOS)! Kuratibu: ${lat}, ${lon}. Muda: ${new Date(record.time).toLocaleString()}`;
+    sendSMS(phone, msg);
+    sendEmail(email, `🆘 DHARURA - ${boatId} Inaomba Msaada`, msg);
+  }
 }
 
 // ── API ──
@@ -307,14 +343,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Laptop yako inatuma data hapa
 app.post('/api/data', (req, res) => {
-  const { boat_id, lat, lon, status } = req.body;
+  const { boat_id, lat, lon, status, tamper, need_help } = req.body;
   if (!boat_id || lat === undefined || lon === undefined) {
     return res.status(400).json({ error: 'Tuma: boat_id, lat, lon' });
   }
   if (!registeredBoats[boat_id]) {
     return res.status(403).json({ error: `Boti '${boat_id}' haijasajiliwa. Sajili kwanza kwenye dashboard.` });
   }
-  processBoatData(boat_id, parseFloat(lat), parseFloat(lon), status);
+  processBoatData(boat_id, parseFloat(lat), parseFloat(lon), status, !!tamper, !!need_help);
   res.json({ ok: true, packet: packetCount });
 });
 
