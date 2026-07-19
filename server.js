@@ -125,15 +125,18 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Kasekera - Eneo Lililokatazwa',
-    lat: -4.687981,
-    lon: 29.619278,
-    allowedError: 0.044921, // takriban mita 5000 (radius)
-    // Kasekera iko ukingoni mwa Ziwa Tanganyika — duara kamili lingefunika nchi kavu pia.
-    // "waterBearingCenter/Spread" inapunguza ukaguzi kwenye NUSU-DUARA inayoelekea majini tu.
-    // 0°=Kaskazini, 90°=Mashariki, 180°=Kusini, 270°=Magharibi.
-    // Kwa Kasekera, ziwa liko upande wa MAGHARIBI ya kijiji (kama ilivyothibitishwa kwenye ramani halisi).
-    waterBearingCenter: 270,  // Magharibi (upande wa maji)
-    waterBearingSpread: 100  // inashughulikia takriban Kaskazini-Magharibi hadi Kusini-Magharibi
+    type: 'polygon',
+    // Pointi za mpaka wa eneo la ziwa (zimepangwa kuzunguka ili kutengeneza umbo
+    // sahihi lisilojichanganya). Ongeza/toa/badilisha pointi hapa kadri
+    // unavyopata coordinates sahihi zaidi za mpaka wa maji.
+    points: [
+      [-4.964751, 29.360054],
+      [-4.924290, 29.580567],
+      [-4.928056, 29.600438],
+      [-4.791019, 29.563467],
+      [-4.445203, 29.658402],
+      [-4.445203, 29.416750]
+    ]
   },
   {
     id: 'B',
@@ -144,8 +147,10 @@ const FORBIDDEN_ZONES = [
   }
 ];
 
-// Eneo la "onyo" (warning) ni doa kubwa kidogo kuzunguka eneo lililokatazwa
-const WARNING_MARGIN = 0.0003; // takriban mita 33 za ziada
+// Eneo la "onyo" (warning), kwa duara: doa kubwa kidogo kuzunguka eneo lililokatazwa.
+// Kwa polygon: kuongeza pointi kidogo kutoka centroid (makadirio ya "buffer" ya nje).
+const WARNING_MARGIN = 0.0003; // takriban mita 33 za ziada (kwa zones za duara)
+const WARNING_MARGIN_METERS = 300; // kwa zones za polygon (ongezeko la nje)
 
 // Umbali wa kweli (mita) kati ya pointi mbili za lat/lon, kwa kutumia mkabala
 // uleule (~111320m kwa degree 1 ya latitude) unaotumika kwenye ramani (index.html),
@@ -156,6 +161,33 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   const dLat = (lat1 - lat2) * METERS_PER_DEGREE;
   const dLon = (lon1 - lon2) * METERS_PER_DEGREE * Math.cos(lat2 * Math.PI / 180);
   return Math.sqrt(dLat * dLat + dLon * dLon);
+}
+
+// Kagua kama pointi (lat,lon) iko NDANI ya polygon (ray-casting algorithm) —
+// inafanya kazi kwa umbo lolote la mipaka isiyo ya kawaida (kama mpaka wa ziwa).
+function pointInPolygon(lat, lon, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [lat_i, lon_i] = points[i];
+    const [lat_j, lon_j] = points[j];
+    const intersect =
+      (lat_i > lat) !== (lat_j > lat) &&
+      lon < ((lon_j - lon_i) * (lat - lat_i)) / (lat_j - lat_i) + lon_i;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Tengeneza polygon "iliyopanuliwa" (buffer) kutoka centroid, kwa ajili ya eneo la onyo.
+function bufferedPolygon(points, marginMeters) {
+  const clat = points.reduce((s, p) => s + p[0], 0) / points.length;
+  const clon = points.reduce((s, p) => s + p[1], 0) / points.length;
+  return points.map(([lat, lon]) => {
+    const distM = distanceMeters(lat, lon, clat, clon);
+    if (distM === 0) return [lat, lon];
+    const scale = (distM + marginMeters) / distM;
+    return [clat + (lat - clat) * scale, clon + (lon - clon) * scale];
+  });
 }
 
 // Mwelekeo (bearing, digrii) kutoka pointi 1 kwenda pointi 2. 0=Kaskazini, 90=Mashariki...
@@ -176,9 +208,13 @@ function bearingWithinRange(bearing, center, spread) {
   return diff <= spread;
 }
 
-// Je, pointi (lat,lon) iko ndani ya "eneo" la zone, kwa radius fulani (mita)?
-// Ikiwa zone ina waterBearingCenter, tunapunguza ukaguzi kwenye nusu-duara ya maji tu.
-function withinZone(lat, lon, zone, radiusMeters) {
+// Je, pointi (lat,lon) iko ndani ya "eneo" la zone (duara/sekta AU polygon)?
+function withinZone(lat, lon, zone, marginMeters) {
+  if (zone.type === 'polygon') {
+    const poly = marginMeters > 0 ? bufferedPolygon(zone.points, marginMeters) : zone.points;
+    return pointInPolygon(lat, lon, poly);
+  }
+  const radiusMeters = zone.allowedError * METERS_PER_DEGREE + marginMeters;
   if (distanceMeters(lat, lon, zone.lat, zone.lon) > radiusMeters) return false;
   if (zone.waterBearingCenter != null) {
     const brg = bearingDegrees(zone.lat, zone.lon, lat, lon);
@@ -189,16 +225,15 @@ function withinZone(lat, lon, zone, radiusMeters) {
 
 function checkViolation(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
-    const radiusMeters = zone.allowedError * METERS_PER_DEGREE;
-    if (withinZone(lat, lon, zone, radiusMeters)) return zone;
+    if (withinZone(lat, lon, zone, 0)) return zone;
   }
   return null;
 }
 
 function checkWarning(lat, lon) {
   for (const zone of FORBIDDEN_ZONES) {
-    const radiusMeters = (zone.allowedError + WARNING_MARGIN) * METERS_PER_DEGREE;
-    if (withinZone(lat, lon, zone, radiusMeters)) return zone;
+    const marginMeters = zone.type === 'polygon' ? WARNING_MARGIN_METERS : (WARNING_MARGIN * METERS_PER_DEGREE);
+    if (withinZone(lat, lon, zone, marginMeters)) return zone;
   }
   return null;
 }

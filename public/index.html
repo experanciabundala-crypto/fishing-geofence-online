@@ -356,16 +356,22 @@ function drawZones(zones) {
   zoneLayers.forEach(l => map.removeLayer(l));
   zoneLayers = [];
   zones.forEach(z => {
-    // allowedError ni degrees; tunabadilisha kuwa mita kwa radius ya duara (~111320m kwa degree 1 ya latitude)
-    const radiusMeters = z.allowedError * 111320;
     let shape;
-    if (z.waterBearingCenter != null) {
+    if (z.type === 'polygon') {
+      // Umbo halisi la mipaka (mfano: mpaka wa ziwa) — pointi zilizotolewa moja kwa moja
+      shape = L.polygon(z.points, {
+        color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
+      }).addTo(map);
+    } else if (z.waterBearingCenter != null) {
       // Nusu-duara (sekta) inayoelekea upande wa maji tu — inalingana na ukaguzi wa server
+      const radiusMeters = z.allowedError * 111320;
       const latlngs = sectorLatLngs(z.lat, z.lon, radiusMeters, z.waterBearingCenter, z.waterBearingSpread);
       shape = L.polygon(latlngs, {
         color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
       }).addTo(map);
     } else {
+      // allowedError ni degrees; tunabadilisha kuwa mita kwa radius ya duara (~111320m kwa degree 1 ya latitude)
+      const radiusMeters = z.allowedError * 111320;
       shape = L.circle([z.lat, z.lon], {
         radius: radiusMeters,
         color: '#ef4444', weight: 2, dashArray: '6 4', fillColor: '#ef4444', fillOpacity: .15
