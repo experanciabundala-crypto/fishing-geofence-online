@@ -98,6 +98,6 @@ function connect() {
 
 console.log('╔══════════════════════════════════════════╗');
 console.log('║   FORWARDER - Laptop → Internet          ║');
-console.log(`║   COM15 @ 9600 baud                      ║`);
+console.log(`║   ${SERIAL_PORT} @ ${BAUD_RATE} baud                      ║`);
 console.log('╚══════════════════════════════════════════╝\n');
 connect();
