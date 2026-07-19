@@ -127,7 +127,7 @@ const FORBIDDEN_ZONES = [
     name: 'Kasekera - Eneo Lililokatazwa',
     lat: -4.687981,
     lon: 29.619278,
-    allowedError: 0.044921, // takriban mita 5000 (radius)
+    allowedError: 0.444921, // takriban mita 5000 (radius)
     // Kasekera iko ukingoni mwa Ziwa Tanganyika — duara kamili lingefunika nchi kavu pia.
     // "waterBearingCenter/Spread" inapunguza ukaguzi kwenye NUSU-DUARA inayoelekea majini tu.
     // 0°=Kaskazini, 90°=Mashariki, 180°=Kusini, 270°=Magharibi.
