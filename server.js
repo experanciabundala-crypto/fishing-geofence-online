@@ -131,10 +131,9 @@ const FORBIDDEN_ZONES = [
     // Kasekera iko ukingoni mwa Ziwa Tanganyika — duara kamili lingefunika nchi kavu pia.
     // "waterBearingCenter/Spread" inapunguza ukaguzi kwenye NUSU-DUARA inayoelekea majini tu.
     // 0°=Kaskazini, 90°=Mashariki, 180°=Kusini, 270°=Magharibi.
-    // Kwa Kasekera, ziwa liko upande wa MASHARIKI ya kijiji — badilisha namba hizi
-    // kama upande wa maji ni tofauti kwenye eneo lako halisi.
-    waterBearingCenter: 90,   // Mashariki (upande wa maji)
-    waterBearingSpread: 100  // inashughulikia takriban Kaskazini-Mashariki hadi Kusini-Mashariki
+    // Kwa Kasekera, ziwa liko upande wa MAGHARIBI ya kijiji (kama ilivyothibitishwa kwenye ramani halisi).
+    waterBearingCenter: 270,  // Magharibi (upande wa maji)
+    waterBearingSpread: 100  // inashughulikia takriban Kaskazini-Magharibi hadi Kusini-Magharibi
   },
   {
     id: 'B',
