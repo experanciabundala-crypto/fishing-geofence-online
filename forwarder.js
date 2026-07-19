@@ -1,39 +1,30 @@
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 
-const SERVER_URL = 'https://fishing-monitor-production.up.railway.app/api/data';
-const SERIAL_PORT = 'COM4';
+const SERVER_URL = 'https://fishing-geofence-online-production.up.railway.app/api/data';
+const SERIAL_PORT = 'COM15';
 const BAUD_RATE = 9600;
 
 let buf = { lat: null, lon: null };
-let latest = null;       // usomaji mpya zaidi bado haujatumwa
-let sending = false;     // kuzuia request mbili kwa wakati mmoja
+let lastStatus = 'safe';
 let sentCount = 0;
 
-async function sendLatest() {
-  if (sending) return;      // request nyingine bado inaendelea
-  if (!latest) return;      // hakuna kitu kipya cha kutuma
-  const { lat, lon } = latest;
-  latest = null;
-  sending = true;
+async function sendToServer(lat, lon, status) {
   try {
     const res = await fetch(SERVER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon })
+      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon, status })
     });
     if (res.ok) {
       sentCount++;
-      console.log(`✅ Imetumwa #${sentCount} | Lat:${lat} Lon:${lon}`);
+      console.log(`✅ Imetumwa #${sentCount} | Lat:${lat} Lon:${lon} | ${status}`);
     } else {
       const body = await res.text().catch(() => '');
       console.log(`⚠️  Server imekataa (HTTP ${res.status}): ${body}`);
     }
   } catch (err) {
     console.log(`❌ Haiwezi kutuma: ${err.message}`);
-  } finally {
-    sending = false;
-    if (latest) sendLatest(); // kama kuna nyingine mpya iliyoingia wakati tulikuwa tunatuma, tuma sasa hivi
   }
 }
 
@@ -47,10 +38,13 @@ function processLine(line) {
   const lonMatch = line.match(/LONGITUDE\s*(?:RECEIVED)?\s*:\s*([-\d.]+)/i);
   if (lonMatch) { buf.lon = parseFloat(lonMatch[1]); }
 
+  if (/PROHIBITED|NEEDS HELP/i.test(line)) lastStatus = 'violation';
+  else if (/SAFE/i.test(line)) lastStatus = 'safe';
+
   if (buf.lat !== null && buf.lon !== null) {
-    latest = { lat: buf.lat, lon: buf.lon };
+    sendToServer(buf.lat, buf.lon, lastStatus);
     buf = { lat: null, lon: null };
-    sendLatest(); // tuma MARA MOJA, usisubiri interval
+    lastStatus = 'safe';
   }
 }
 
@@ -66,7 +60,7 @@ function connect() {
       rtscts: false,
       xon: false,
       xoff: false,
-      hupcl: false
+      hupcl: false  // Hii inazuia serial kufunga haraka
     });
 
     const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
@@ -86,6 +80,7 @@ function connect() {
       console.log('🔄 Serial imefungwa — inajaribu tena...');
       setTimeout(connect, 3000);
     });
+
   } catch (err) {
     console.log(`❌ ${err.message}`);
     setTimeout(connect, 3000);
@@ -94,7 +89,6 @@ function connect() {
 
 console.log('╔══════════════════════════════════════════╗');
 console.log('║   FORWARDER - Laptop → Internet          ║');
-console.log(`║   COM4 @ 9600 baud                      ║`);
+console.log(`║   COM15 @ 9600 baud                      ║`);
 console.log('╚══════════════════════════════════════════╝\n');
-
 connect();
