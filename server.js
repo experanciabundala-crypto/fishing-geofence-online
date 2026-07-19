@@ -144,6 +144,17 @@ const FORBIDDEN_ZONES = [
     lat: -8.943265,
     lon: 33.417655,
     allowedError: 0.044921 // takriban mita 5000 (radius, duara kamili — trial tu, si majini)
+  },
+  {
+    id: 'C',
+    name: 'Eneo C - Lililokatazwa',
+    type: 'polygon',
+    points: [
+      [-7.766939, 31.975949],
+      [-7.862681, 32.161464],
+      [-7.780456, 32.221747],
+      [-7.613026, 32.034364]
+    ]
   }
 ];
 
