@@ -125,7 +125,6 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Kasekera - Eneo Lililokatazwa',
-<<<<<<< HEAD
     type: 'polygon',
     // Pointi za mpaka wa eneo la ziwa (zimepangwa kuzunguka ili kutengeneza umbo
     // sahihi lisilojichanganya). Ongeza/toa/badilisha pointi hapa kadri
@@ -138,17 +137,6 @@ const FORBIDDEN_ZONES = [
       [-4.445203, 29.658402],
       [-4.445203, 29.416750]
     ]
-=======
-    lat: -4.687981,
-    lon: 29.619278,
-    allowedError: 0.444921, // takriban mita 5000 (radius)
-    // Kasekera iko ukingoni mwa Ziwa Tanganyika — duara kamili lingefunika nchi kavu pia.
-    // "waterBearingCenter/Spread" inapunguza ukaguzi kwenye NUSU-DUARA inayoelekea majini tu.
-    // 0°=Kaskazini, 90°=Mashariki, 180°=Kusini, 270°=Magharibi.
-    // Kwa Kasekera, ziwa liko upande wa MAGHARIBI ya kijiji (kama ilivyothibitishwa kwenye ramani halisi).
-    waterBearingCenter: 270,  // Magharibi (upande wa maji)
-    waterBearingSpread: 100  // inashughulikia takriban Kaskazini-Magharibi hadi Kusini-Magharibi
->>>>>>> 921fcfbb9b4daea463b23843bb3bcd703432ee60
   },
   {
     id: 'B',
