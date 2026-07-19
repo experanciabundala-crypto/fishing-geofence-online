@@ -197,6 +197,10 @@ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;height:10
         <label>Namba ya Simu ya Mmiliki (hiari — kwa arifa za SMS)</label>
         <input type="tel" id="reg-boat-phone" placeholder="mfano: +255712345678">
       </div>
+      <div class="login-field">
+        <label>Email ya Mmiliki (hiari — kwa arifa za Email)</label>
+        <input type="email" id="reg-boat-email" placeholder="mfano: juma@gmail.com">
+      </div>
       <button type="submit" class="login-btn">Sajili</button>
       <div class="login-error" id="register-error"></div>
     </form>
@@ -369,13 +373,14 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   const boat_id = document.getElementById('reg-boat-id').value.trim();
   const name = document.getElementById('reg-boat-name').value.trim();
   const phone = document.getElementById('reg-boat-phone').value.trim();
+  const email = document.getElementById('reg-boat-email').value.trim();
   const errEl = document.getElementById('register-error');
   errEl.textContent = '';
   try {
     const r = await fetch('/api/boats/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boat_id, name, phone })
+      body: JSON.stringify({ boat_id, name, phone, email })
     });
     const data = await r.json();
     if (r.ok) {

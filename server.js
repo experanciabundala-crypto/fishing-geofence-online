@@ -8,6 +8,7 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,7 +46,42 @@ const startTime = new Date(); // muda mfumo ulipoanza kuwa active
 const registeredBoats = {};
 const OFFLINE_THRESHOLD_MS = 15000; // sekunde 15 bila data = "haisomi"
 
-// ── Arifa za SMS (HIARI) ──
+// ── Arifa za Email (BURE kabisa, kwa Gmail SMTP) ──
+// Ili kuwezesha: nenda Railway → Variables → ongeza:
+//   EMAIL_USER = anwani yako ya gmail (mfano: mfumowauvuvi@gmail.com)
+//   EMAIL_APP_PASSWORD = "App Password" ya Gmail (SI password ya kawaida ya akaunti)
+// Jinsi ya kupata App Password: myaccount.google.com → Security → 2-Step Verification
+// (lazima iwe imewashwa kwanza) → App Passwords → tengeneza mpya → nakili herufi 16.
+// Bila hizi, mfumo utaendelea kufanya kazi kawaida — email itarukwa tu.
+const EMAIL_USER = process.env.EMAIL_USER || '';
+const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD || '';
+
+let mailTransporter = null;
+if (EMAIL_USER && EMAIL_APP_PASSWORD) {
+  mailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: EMAIL_USER, pass: EMAIL_APP_PASSWORD }
+  });
+}
+
+async function sendEmail(toEmail, subject, message) {
+  if (!toEmail) return; // boti haina email iliyosajiliwa
+  if (!mailTransporter) {
+    console.log(`📵 Email haijatumwa (huduma haijawekwa Railway Variables) → ${toEmail}: ${subject}`);
+    return;
+  }
+  try {
+    await mailTransporter.sendMail({
+      from: `"Mfumo wa Uvuvi - Geofencing" <${EMAIL_USER}>`,
+      to: toEmail,
+      subject,
+      text: message
+    });
+    console.log(`📩 Email imetumwa kwa ${toEmail}`);
+  } catch (err) {
+    console.log(`❌ Hitilafu ya kutuma Email: ${err.message}`);
+  }
+}
 // Tunatumia huduma ya Africa's Talking (inafanya kazi vizuri Tanzania/Afrika Mashariki).
 // Ili kuwezesha: nenda Railway → Variables → ongeza AT_USERNAME na AT_API_KEY
 // (unazipata baada ya kujisajili africastalking.com). Bila hizo, mfumo utaendelea
@@ -89,22 +125,16 @@ const FORBIDDEN_ZONES = [
   {
     id: 'A',
     name: 'Kasekera - Eneo Lililokatazwa',
-<<<<<<< HEAD
-     lat:  -4.651183,
-    lon:  29.440335,
-    allowedError: 0.444492 // takriban mita 500
-=======
-    lat:  -4.651183,
-    lon:  29.440335,
-    allowedError: 0.044492 // takriban mita 500
->>>>>>> e83f4184a09ec4d8d0a0a9dfecb917d87293d349
+    lat: -4.687981,
+    lon: 29.619278,
+    allowedError: 0.004492 // takriban mita 500
   },
   {
     id: 'B',
     name: 'Mbeya University - Eneo Lililokatazwa',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.044492 // takriban mita 500
+    allowedError: 0.004492 // takriban mita 500
   }
 ];
 
@@ -171,9 +201,12 @@ function processBoatData(boatId, lat, lon, rawStatus) {
     broadcast(alert);
     console.log(`🚨 UKIUKAJI! ${boatId} | Lat:${lat} Lon:${lon}`);
     if (prevStatus !== 'violation') {
-      // Boti inaingia ukiukaji SASA HIVI (si tayari ndani) — tuma SMS mara moja tu
+      // Boti inaingia ukiukaji SASA HIVI (si tayari ndani) — tuma arifa mara moja tu
       const phone = registeredBoats[boatId]?.phone;
-      sendSMS(phone, `ARIFA UVUVI: Boti ${boatId} imevuka mpaka - ${record.zone || 'eneo lililokatazwa'}. Muda: ${new Date(record.time).toLocaleTimeString()}`);
+      const email = registeredBoats[boatId]?.email;
+      const msg = `ARIFA UVUVI: Boti ${boatId} imevuka mpaka - ${record.zone || 'eneo lililokatazwa'}. Muda: ${new Date(record.time).toLocaleString()}`;
+      sendSMS(phone, msg);
+      sendEmail(email, `🚨 Arifa ya Ukiukaji - ${boatId}`, msg + `\n\nKuratibu: ${lat}, ${lon}`);
     }
   } else if (status === 'warning') {
     const alert = { type:'alert', level:'warning',
@@ -206,7 +239,7 @@ app.post('/api/data', (req, res) => {
 
 // ── Usajili wa boti ──
 app.post('/api/boats/register', (req, res) => {
-  const { boat_id, name, phone } = req.body;
+  const { boat_id, name, phone, email } = req.body;
   if (!boat_id || !boat_id.trim()) {
     return res.status(400).json({ error: 'Tuma boat_id' });
   }
@@ -215,6 +248,7 @@ app.post('/api/boats/register', (req, res) => {
     id,
     name: (name && name.trim()) || id,
     phone: (phone && phone.trim()) || registeredBoats[id]?.phone || '',
+    email: (email && email.trim()) || registeredBoats[id]?.email || '',
     registeredAt: registeredBoats[id]?.registeredAt || new Date().toISOString()
   };
   // Tengeneza boti ionekane mara moja kwenye dashboard ikiwa "haisomi" mpaka ituma data
