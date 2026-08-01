@@ -20,6 +20,9 @@ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;height:10
 .live-pill{background:#16a34a;color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
 .ldot{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* MPYA — kuonyesha TAMPER na SOS kwenye alama (marker) ya ramani, tofauti na violation/warning/safe */
+@keyframes blinkTamper{0%,100%{background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.5)}50%{background:#a855f7;box-shadow:0 0 0 4px rgba(168,85,247,.6)}}
+@keyframes blinkSOS{0%,100%{background:#ef4444;box-shadow:0 0 0 6px rgba(239,68,68,.6)}50%{background:#ffffff;box-shadow:0 0 0 6px rgba(239,68,68,.9)}}
 .iconbtn{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
 .iconbtn:hover{background:#334155}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1e293b;flex-shrink:0}
@@ -412,11 +415,22 @@ const boatMarkers = {};
 const alerts = [];
 let packets = 0;
 
-function makeIcon(status) {
+function makeIcon(boat) {
+  const status = boat.status;
   const c = status === 'violation' ? '#ef4444' : status === 'warning' ? '#f59e0b' : '#22c55e';
+  // MPYA — SOS ina kipaumbele cha juu zaidi (dharura), kisha Tamper, kisha rangi ya kawaida ya status
+  let animStyle = '';
+  let emoji = '⚓';
+  if (boat.needHelp) {
+    animStyle = 'animation:blinkSOS .5s infinite;';
+    emoji = '🆘';
+  } else if (boat.tampered) {
+    animStyle = 'animation:blinkTamper .8s infinite;';
+    emoji = '🔧';
+  }
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${c};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 0 2px ${c}">⚓</div>`,
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:${c};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 0 2px ${c};${animStyle}">${emoji}</div>`,
     iconSize: [30, 30], iconAnchor: [15, 15]
   });
 }
@@ -459,9 +473,9 @@ function updateBoat(boat) {
   if (boat.lat != null && boat.lon != null) {
     if (boatMarkers[boat.id]) {
       boatMarkers[boat.id].setLatLng([boat.lat, boat.lon]);
-      boatMarkers[boat.id].setIcon(makeIcon(boat.status));
+      boatMarkers[boat.id].setIcon(makeIcon(boat));
     } else {
-      const m = L.marker([boat.lat, boat.lon], { icon: makeIcon(boat.status) }).addTo(map);
+      const m = L.marker([boat.lat, boat.lon], { icon: makeIcon(boat) }).addTo(map);
       m.bindPopup('');
       boatMarkers[boat.id] = m;
       map.setView([boat.lat, boat.lon], 15);
