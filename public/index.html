@@ -322,9 +322,9 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       rows = sourceRows.map(a => [
         new Date(a.time).toLocaleString(),
         a.boat?.id || '-',
-        a.level === 'danger' ? 'UKIUKAJI' : a.level === 'safe' ? 'IMEISHA' : 'ONYO',
+        a.level === 'danger' ? 'UKIUKAJI' : 'ONYO',
         a.boat?.zone || '-',
-        (a.boat && a.boat.lat != null && a.boat.lon != null) ? (a.boat.lat.toFixed(6) + ', ' + a.boat.lon.toFixed(6)) : '-'
+        a.boat ? (a.boat.lat.toFixed(6) + ', ' + a.boat.lon.toFixed(6)) : '-'
       ]);
     }
 
@@ -528,10 +528,7 @@ function renderAll() {
     <div class="boat-row">
       <div class="bdot ${dotClass}" onclick="focusBoat('${b.id}')" style="cursor:pointer"></div>
       <div class="bi" onclick="focusBoat('${b.id}')" style="cursor:pointer">
-        <div class="bid">${b.id}${b.name && b.name !== b.id ? ' · 👤 ' + b.name : ''}
-          ${b.tampered ? ' <span class="bstat bsw" title="Tamper inaendelea">🔧 TAMPER</span>' : ''}
-          ${b.needHelp ? ' <span class="bstat bsv" title="SOS inaendelea">🆘 SOS</span>' : ''}
-        </div>
+        <div class="bid">${b.id}${b.name && b.name !== b.id ? ' · 👤 ' + b.name : ''}</div>
         <div class="bcoord">${coordText}</div>
       </div>
       <span class="bstat ${statClass}">${statText}</span>

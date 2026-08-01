@@ -21,7 +21,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => clients.delete(ws));
   ws.on('error', () => clients.delete(ws));
   // Tuma data iliyopo tayari kwa mtumiaji mpya
-  ws.send(JSON.stringify({ type: 'init', boats: Object.values(boats), alerts: alertsLog.slice(0,20), registered: Object.values(registeredBoats), incidents: incidentsLog.slice(0,50) }));
+  ws.send(JSON.stringify({ type: 'init', boats: Object.values(boats), alerts: alertsLog.slice(0,20), registered: Object.values(registeredBoats) }));
 });
 
 function broadcast(data) {
@@ -36,7 +36,6 @@ function broadcast(data) {
 // ── Hifadhi ──
 const boats = {};
 const alertsLog = [];
-const ALERTS_LOG_LIMIT = 2000; // kikomo cha kumbukumbu ili server isijae
 const positionLog = []; // Kila "packet" iliyowahi kupokelewa (safari NZIMA ya kila boti, si matukio tu)
 const POSITION_LOG_LIMIT = 5000; // kikomo cha kumbukumbu ili server isijae
 
@@ -328,7 +327,6 @@ function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag) 
       message:`🚨 ${boatId} amevuka mpaka! ${record.zone || ''}`,
       boat: record, time: record.time };
     alertsLog.unshift(alert);
-    if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
     broadcast(alert);
     console.log(`🚨 UKIUKAJI! ${boatId} | Lat:${lat} Lon:${lon}`);
     if (prevStatus !== 'violation') {
@@ -344,81 +342,46 @@ function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag) 
       message:`⚠️ ${boatId} inakaribia ${record.zone}`,
       boat: record, time: record.time };
     alertsLog.unshift(alert);
-    if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
     broadcast(alert);
     console.log(`⚠️  ONYO! ${boatId} | Lat:${lat} Lon:${lon}`);
   } else {
     console.log(`✅ SALAMA | ${boatId} | Lat:${lat} Lon:${lon} | #${packetCount}`);
   }
 
-  // ── TAMPER — huru kabisa, haiathiri status/violation/warning hapo juu ──
-  // Sasa inafuatilia MZUNGUKO KAMILI: ilipoanza (active) → ilipo-CLEARED, na muda uliochukua
+  // ── MPYA: TAMPER — huru kabisa, haiathiri status/violation/warning hapo juu ──
   if (tamperFlag && !prevTampered) {
-    // Tukio LINAANZA sasa hivi
-    startIncident(boatId, 'tamper', lat, lon, record.time);
+    startIncident(boatId, 'tamper', lat, lon, record.time); // MPYA — anza kufuatilia muda wa tukio
     const alert = { type:'alert', level:'warning',
       message:`🔧 ${boatId} - kifaa kimeguswa (tamper detected)!`,
       boat: record, time: record.time };
     alertsLog.unshift(alert);
-    if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
     broadcast(alert);
-    broadcast({ type: 'incident_update', incident: activeIncidents[boatId].tamper });
-    console.log(`🔧 TAMPER LIMEANZA! ${boatId} | Lat:${lat} Lon:${lon}`);
+    console.log(`🔧 TAMPER! ${boatId} | Lat:${lat} Lon:${lon}`);
     const phone = registeredBoats[boatId]?.phone;
     const email = registeredBoats[boatId]?.email;
     const msg = `ONYO: Kifaa cha boti ${boatId} kimeguswa/kimebadilishwa (tamper). Kuratibu: ${lat}, ${lon}. Muda: ${new Date(record.time).toLocaleString()}`;
     sendSMS(phone, msg);
     sendEmail(email, `🔧 Onyo la Tamper - ${boatId}`, msg);
   } else if (!tamperFlag && prevTampered) {
-    // Tukio LIMEISHA (CLEARED) — hesabu muda uliochukua
-    const cleared = clearIncident(boatId, 'tamper', lat, lon, record.time);
-    if (cleared) {
-      const mins = Math.floor(cleared.durationSeconds / 60);
-      const secs = cleared.durationSeconds % 60;
-      const durText = mins > 0 ? `dakika ${mins} sekunde ${secs}` : `sekunde ${secs}`;
-      const alert = { type:'alert', level:'safe',
-        message:`✅ ${boatId} - tamper imeondoka (CLEARED). Ilidumu ${durText}.`,
-        boat: record, time: record.time };
-      alertsLog.unshift(alert);
-      if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
-      broadcast(alert);
-      broadcast({ type: 'incident_update', incident: cleared });
-      console.log(`✅ TAMPER CLEARED! ${boatId} | Ilidumu: ${durText}`);
-    }
+    clearIncident(boatId, 'tamper', lat, lon, record.time); // MPYA — funga tukio, hesabu muda (kwa ripoti tu, kimya)
   }
 
-  // ── NEEDS HELP / SOS — huru kabisa, haiathiri status/violation/warning hapo juu ──
-  // Sasa inafuatilia MZUNGUKO KAMILI: ilipoanza (active) → ilipo-CLEARED, na muda uliochukua
+  // ── MPYA: NEEDS HELP / SOS — huru kabisa, haiathiri status/violation/warning hapo juu ──
   if (needHelpFlag && !prevNeedHelp) {
-    startIncident(boatId, 'need_help', lat, lon, record.time);
+    startIncident(boatId, 'need_help', lat, lon, record.time); // MPYA — anza kufuatilia muda wa tukio
     const alert = { type:'alert', level:'danger',
       message:`🆘 ${boatId} INAOMBA MSAADA WA DHARURA (SOS)!`,
       boat: record, time: record.time };
     alertsLog.unshift(alert);
-    if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
     broadcast(alert);
-    broadcast({ type: 'incident_update', incident: activeIncidents[boatId].need_help });
-    console.log(`🆘 SOS LIMEANZA! ${boatId} | Lat:${lat} Lon:${lon}`);
+    console.log(`🆘 SOS! ${boatId} | Lat:${lat} Lon:${lon}`);
     const phone = registeredBoats[boatId]?.phone;
     const email = registeredBoats[boatId]?.email;
     const msg = `DHARURA: Boti ${boatId} imeomba MSAADA (SOS)! Kuratibu: ${lat}, ${lon}. Muda: ${new Date(record.time).toLocaleString()}`;
     sendSMS(phone, msg);
     sendEmail(email, `🆘 DHARURA - ${boatId} Inaomba Msaada`, msg);
   } else if (!needHelpFlag && prevNeedHelp) {
-    const cleared = clearIncident(boatId, 'need_help', lat, lon, record.time);
-    if (cleared) {
-      const mins = Math.floor(cleared.durationSeconds / 60);
-      const secs = cleared.durationSeconds % 60;
-      const durText = mins > 0 ? `dakika ${mins} sekunde ${secs}` : `sekunde ${secs}`;
-      const alert = { type:'alert', level:'safe',
-        message:`✅ ${boatId} - SOS imeondoka (CLEARED). Ilidumu ${durText}.`,
-        boat: record, time: record.time };
-      alertsLog.unshift(alert);
-      if (alertsLog.length > ALERTS_LOG_LIMIT) alertsLog.pop();
-      broadcast(alert);
-      broadcast({ type: 'incident_update', incident: cleared });
-      console.log(`✅ SOS CLEARED! ${boatId} | Ilidumu: ${durText}`);
-    }
+    clearIncident(boatId, 'need_help', lat, lon, record.time); // MPYA — funga tukio, hesabu muda (kwa ripoti tu, kimya)
   }
 }
 
