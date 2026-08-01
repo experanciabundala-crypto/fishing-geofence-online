@@ -148,6 +148,7 @@ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;height:10
           <select id="report-type-select" style="flex:1;min-width:110px;background:#0f172a;color:#e2e8f0;border:1px solid #1e293b;border-radius:6px;padding:4px 6px;font-size:11px">
             <option value="alerts">Matukio tu (Ukiukaji/Onyo)</option>
             <option value="positions">Ripoti Kamili (Safari Nzima)</option>
+            <option value="incidents">Tamper / SOS (Muda wa Tukio)</option>
           </select>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -252,17 +253,23 @@ document.getElementById('export-btn').addEventListener('click', async () => {
       ? (boats[boatFilter]?.name && boats[boatFilter].name !== boatFilter ? `${boatFilter} — ${boats[boatFilter].name}` : boatFilter)
       : 'Boti Zote';
 
-    let sourceRows = reportType === 'positions' ? (data.positions || []) : (data.alerts || []);
+    let sourceRows = reportType === 'positions' ? (data.positions || [])
+      : reportType === 'incidents' ? (data.incidents || [])
+      : (data.alerts || []);
     if (boatFilter) {
-      sourceRows = sourceRows.filter(r => (r.boat ? r.boat.id : r.id) === boatFilter);
+      sourceRows = sourceRows.filter(r => {
+        if (reportType === 'incidents') return r.boatId === boatFilter;
+        return (r.boat ? r.boat.id : r.id) === boatFilter;
+      });
     }
+    const rowTime = r => reportType === 'incidents' ? r.startTime : r.time;
     if (dateFrom) {
       const fromTs = new Date(dateFrom + 'T00:00:00').getTime();
-      sourceRows = sourceRows.filter(r => new Date(r.time).getTime() >= fromTs);
+      sourceRows = sourceRows.filter(r => new Date(rowTime(r)).getTime() >= fromTs);
     }
     if (dateTo) {
       const toTs = new Date(dateTo + 'T23:59:59').getTime();
-      sourceRows = sourceRows.filter(r => new Date(r.time).getTime() <= toTs);
+      sourceRows = sourceRows.filter(r => new Date(rowTime(r)).getTime() <= toTs);
     }
     const dateLabel = (dateFrom || dateTo) ? `${dateFrom || '...'} hadi ${dateTo || '...'}` : 'Muda Wote';
 
@@ -271,7 +278,9 @@ document.getElementById('export-btn').addEventListener('click', async () => {
 
     doc.setFontSize(16);
     doc.text(
-      reportType === 'positions' ? 'Ripoti Kamili ya Safari — Mfumo wa Uvuvi' : 'Ripoti ya Matukio — Mfumo wa Uvuvi (Geofencing)',
+      reportType === 'positions' ? 'Ripoti Kamili ya Safari — Mfumo wa Uvuvi'
+      : reportType === 'incidents' ? 'Ripoti ya Tamper / SOS — Mfumo wa Uvuvi'
+      : 'Ripoti ya Matukio — Mfumo wa Uvuvi (Geofencing)',
       14, 16
     );
     doc.setFontSize(10);
@@ -293,14 +302,29 @@ document.getElementById('export-btn').addEventListener('click', async () => {
         p.zone || '-',
         (p.lat != null && p.lon != null) ? (p.lat.toFixed(6) + ', ' + p.lon.toFixed(6)) : '-'
       ]);
+    } else if (reportType === 'incidents') {
+      head = [['Boti', 'Aina', 'Ilipoanza', 'Ilipo-CLEARED', 'Muda (dakika:sekunde)', 'Hali']];
+      rows = sourceRows.map(inc => {
+        const durText = inc.durationSeconds != null
+          ? `${Math.floor(inc.durationSeconds / 60)}m ${inc.durationSeconds % 60}s`
+          : '— (BADO LINAENDELEA)';
+        return [
+          inc.boatName || inc.boatId,
+          inc.type === 'tamper' ? '🔧 Tamper' : '🆘 SOS / Msaada',
+          new Date(inc.startTime).toLocaleString(),
+          inc.endTime ? new Date(inc.endTime).toLocaleString() : '—',
+          durText,
+          inc.status === 'active' ? 'BADO LINAENDELEA' : 'IMEISHA (Cleared)'
+        ];
+      });
     } else {
       head = [['Muda', 'Boti', 'Aina', 'Eneo', 'Kuratibu']];
       rows = sourceRows.map(a => [
         new Date(a.time).toLocaleString(),
         a.boat?.id || '-',
-        a.level === 'danger' ? 'UKIUKAJI' : 'ONYO',
+        a.level === 'danger' ? 'UKIUKAJI' : a.level === 'safe' ? 'IMEISHA' : 'ONYO',
         a.boat?.zone || '-',
-        a.boat ? (a.boat.lat.toFixed(6) + ', ' + a.boat.lon.toFixed(6)) : '-'
+        (a.boat && a.boat.lat != null && a.boat.lon != null) ? (a.boat.lat.toFixed(6) + ', ' + a.boat.lon.toFixed(6)) : '-'
       ]);
     }
 
@@ -504,7 +528,10 @@ function renderAll() {
     <div class="boat-row">
       <div class="bdot ${dotClass}" onclick="focusBoat('${b.id}')" style="cursor:pointer"></div>
       <div class="bi" onclick="focusBoat('${b.id}')" style="cursor:pointer">
-        <div class="bid">${b.id}${b.name && b.name !== b.id ? ' · 👤 ' + b.name : ''}</div>
+        <div class="bid">${b.id}${b.name && b.name !== b.id ? ' · 👤 ' + b.name : ''}
+          ${b.tampered ? ' <span class="bstat bsw" title="Tamper inaendelea">🔧 TAMPER</span>' : ''}
+          ${b.needHelp ? ' <span class="bstat bsv" title="SOS inaendelea">🆘 SOS</span>' : ''}
+        </div>
         <div class="bcoord">${coordText}</div>
       </div>
       <span class="bstat ${statClass}">${statText}</span>
