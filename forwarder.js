@@ -9,14 +9,16 @@ let buf = { lat: null, lon: null };
 let lastStatus = 'safe';
 let tamperFlag = false;   // MPYA — bendera huru, haiathiri lastStatus
 let needHelpFlag = false; // MPYA — bendera huru, haiathiri lastStatus
+let lastPacketSize = null; // MPYA — kwa ajili ya kuonyesha kwenye dashboard
+let lastRssi = null;       // MPYA — kwa ajili ya kuonyesha kwenye dashboard
 let sentCount = 0;
 
-async function sendToServer(lat, lon, status, tamper, needHelp) {
+async function sendToServer(lat, lon, status, tamper, needHelp, packetSize, rssi) {
   try {
     const res = await fetch(SERVER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon, status, tamper, need_help: needHelp })
+      body: JSON.stringify({ boat_id: 'BOAT-001', lat, lon, status, tamper, need_help: needHelp, packet_size: packetSize, rssi })
     });
     if (res.ok) {
       sentCount++;
@@ -35,6 +37,10 @@ function processLine(line) {
   line = line.trim();
   if (!line) return;
 
+  // MPYA — kusoma "Packet size: 37 | RSSI: -53" kutoka Serial Monitor ya Arduino
+  const sigMatch = line.match(/Packet size:\s*(\d+)\s*\|\s*RSSI:\s*(-?\d+)/i);
+  if (sigMatch) { lastPacketSize = parseInt(sigMatch[1], 10); lastRssi = parseInt(sigMatch[2], 10); return; }
+
   const latMatch = line.match(/LATITUDE\s*(?:RECEIVED)?\s*:\s*([-\d.]+)/i);
   if (latMatch) { buf.lat = parseFloat(latMatch[1]); return; }
 
@@ -49,7 +55,7 @@ function processLine(line) {
   if (/NEEDS HELP/i.test(line)) needHelpFlag = true;
 
   if (buf.lat !== null && buf.lon !== null) {
-    sendToServer(buf.lat, buf.lon, lastStatus, tamperFlag, needHelpFlag);
+    sendToServer(buf.lat, buf.lon, lastStatus, tamperFlag, needHelpFlag, lastPacketSize, lastRssi);
     buf = { lat: null, lon: null };
     lastStatus = 'safe';
     tamperFlag = false;   // MPYA

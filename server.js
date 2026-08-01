@@ -291,7 +291,7 @@ function checkWarning(lat, lon) {
   return null;
 }
 
-function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag) {
+function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag, packetSize, rssi) {
   const prevStatus = boats[boatId]?.status; // hali kabla ya packet hii, kutambua "transition"
   const violation = checkViolation(lat, lon);
   const warning = !violation ? checkWarning(lat, lon) : null;
@@ -309,6 +309,9 @@ function processBoatData(boatId, lat, lon, rawStatus, tamperFlag, needHelpFlag) 
     lat, lon, status,
     tampered: !!tamperFlag,   // MPYA
     needHelp: !!needHelpFlag, // MPYA
+    // MPYA — ishara ya mawimbi (RSSI) na ukubwa wa packet, kwa ajili ya kuonyesha kwenye dashboard
+    packetSize: (packetSize !== undefined && packetSize !== null && !isNaN(packetSize)) ? packetSize : (boats[boatId]?.packetSize ?? null),
+    rssi: (rssi !== undefined && rssi !== null && !isNaN(rssi)) ? rssi : (boats[boatId]?.rssi ?? null),
     zone: violation?.name || warning?.name || (arduinoViolation ? 'Eneo Lililokatazwa' : null),
     time: new Date().toISOString(),
     packet: packetCount
@@ -391,14 +394,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Laptop yako inatuma data hapa
 app.post('/api/data', (req, res) => {
-  const { boat_id, lat, lon, status, tamper, need_help } = req.body;
+  const { boat_id, lat, lon, status, tamper, need_help, packet_size, rssi } = req.body;
   if (!boat_id || lat === undefined || lon === undefined) {
     return res.status(400).json({ error: 'Tuma: boat_id, lat, lon' });
   }
   if (!registeredBoats[boat_id]) {
     return res.status(403).json({ error: `Boti '${boat_id}' haijasajiliwa. Sajili kwanza kwenye dashboard.` });
   }
-  processBoatData(boat_id, parseFloat(lat), parseFloat(lon), status, !!tamper, !!need_help);
+  processBoatData(boat_id, parseFloat(lat), parseFloat(lon), status, !!tamper, !!need_help,
+    packet_size !== undefined ? parseInt(packet_size, 10) : null,
+    rssi !== undefined ? parseInt(rssi, 10) : null);
   res.json({ ok: true, packet: packetCount });
 });
 

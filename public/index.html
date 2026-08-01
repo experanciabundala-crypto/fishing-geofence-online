@@ -134,6 +134,11 @@ body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;height:10
       <div class="stat-val c-amber" id="s-warn">0</div>
       <div class="stat-sub">Inakaribia mpaka</div>
     </div>
+    <div class="stat">
+      <div class="stat-label">Ishara ya Mawimbi (RSSI)</div>
+      <div class="stat-val" id="s-rssi" style="color:#60a5fa">—</div>
+      <div class="stat-sub" id="s-packet">Packet size: —</div>
+    </div>
   </div>
 
   <div class="main">
@@ -498,6 +503,15 @@ function updateBoat(boat) {
     delete boatMarkers[boat.id];
   }
   packets = boat.packet != null ? boat.packet : packets;
+  // MPYA — onyesha Packet Size na RSSI ya packet ya karibuni zaidi kwenye kadi ya takwimu
+  if (boat.rssi != null) {
+    const rssiEl = document.getElementById('s-rssi');
+    rssiEl.textContent = `${boat.rssi} dBm`;
+    rssiEl.style.color = boat.rssi >= -85 ? '#22c55e' : boat.rssi >= -100 ? '#f59e0b' : '#ef4444';
+  }
+  if (boat.packetSize != null) {
+    document.getElementById('s-packet').textContent = `Packet size: ${boat.packetSize} bytes · ${boat.id}`;
+  }
   renderAll();
 }
 
