@@ -182,10 +182,10 @@ const FORBIDDEN_ZONES = [
   },
   {
     id: 'B',
-    name: 'Mbeya University - Eneo Lililokatazwa (Trial)',
+    name: 'MBEYA UNIVERSITY - (TRIAL)',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.044921 // takriban mita 5000 (radius, duara kamili — trial tu, si majini)
+    allowedError: 0.000084// takriban mita 5000 (radius, duara kamili — trial tu, si majini) 0.044921
   },
   {
     id: 'C',
