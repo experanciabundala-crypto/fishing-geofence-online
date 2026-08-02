@@ -185,7 +185,7 @@ const FORBIDDEN_ZONES = [
     name: 'MBEYA UNIVERSITY - (TRIAL)',
     lat: -8.943265,
     lon: 33.417655,
-    allowedError: 0.000084// takriban mita 5000 (radius, duara kamili — trial tu, si majini) 0.044921
+    allowedError: 0.044921// takriban mita 5000 (radius, duara kamili — trial tu, si majini) 
   },
   {
     id: 'C',
